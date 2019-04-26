@@ -12,9 +12,8 @@
         window.app = new App();
     </script>
     <style>
-        #messages {
-            font-family: monospace;
-            white-space: pre;
+        .invisible {
+            visibility: hidden;
         }
     </style>
 </head>
@@ -25,18 +24,20 @@
         <section class="container">
             <a class="navigation-title" href="#">
                 <h1 class="title" id="article_name"></h1>
+                <input type="button" onclick="window.app.showEditForm();" value="Edit">
                 <span>as <span id="public_key"></span></span>
             </a>
         </section>
     </nav>
     <div id="article_text" class="container">
     </div>
-    <div class="container" id="edit_form">
+    <div class="container invisible" id="edit_form">
         <br/>
         <form>
             <fieldset>
                 <textarea id="article_content" rows="10" placeholder="What's up?"></textarea>
                 <input type="button" onclick="window.app.submitForm();" value="Save">
+                <input type="button" onclick="window.app.hideEditForm();" value="Cancel">
             </fieldset>
         </form>
     </div>

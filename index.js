@@ -5,7 +5,7 @@ class App {
     }
 
     getNameFromURL() {
-        return window.location.search.substr(1) || "Main";
+        return decodeURIComponent(window.location.search.substr(1) || "Main");
     }
 
     async getLastRevision() {
@@ -58,8 +58,18 @@ class App {
 
         await this.saveRevision();
         await this.render();
+        this.hideEditForm();
 
         return false;
     }
 
+    showEditForm() {
+        document.getElementById("article_text").classList.add("invisible");
+        document.getElementById("edit_form").classList.remove("invisible");
+    }
+
+    hideEditForm() {
+        document.getElementById("article_text").classList.remove("invisible");
+        document.getElementById("edit_form").classList.add("invisible");
+    }
 }
