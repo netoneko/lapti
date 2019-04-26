@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-var PUBLIC = sdk.Export()
+var PUBLIC = sdk.Export(GetLastRevision, SaveRevision)
 var SYSTEM = sdk.Export(_init)
 
 type Revision struct {
@@ -27,8 +27,9 @@ func _init() {
 
 }
 
-func SaveRevision(name string, text string) (revisionId uint64) {
-	return saveRevision(name, text)
+func SaveRevision(name string, text string) (rawJSON string) {
+	 saveRevision(name, text)
+	 return GetLastRevision(name)
 }
 
 func GetLastRevision(name string) (rawJSON string) {

@@ -1,0 +1,14 @@
+{
+  "name": "lapti",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Kirill Maksimov <netoneko@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "./node_modules/typescript/bin/tsc"
+  },
+  "dependencies": {
+    "orbs-client-sdk": "^0.0.6"
+  }
+}
