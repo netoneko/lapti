@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/hex"
-	"fmt"
 	"github.com/orbs-network/orbs-contract-sdk/go/sdk/v1/state"
 	. "github.com/orbs-network/orbs-contract-sdk/go/testing/unit"
 	"github.com/stretchr/testify/require"
@@ -66,21 +65,31 @@ func TestList(t *testing.T) {
 	caller := AnAddress()
 
 	InServiceScope(nil, caller, func(m Mockery) {
-		s := func(id uint64, params ...interface{}) {
-			state.WriteString([]byte(fmt.Sprintf("h_%d", id)), params[0].(string))
+		s := func(compositeKey []byte, id uint64, params ...interface{}) {
+			state.WriteString(compositeKey, params[0].(string))
 		}
 
-		d := func(id uint64) interface{} {
-			return state.ReadString([]byte(fmt.Sprintf("h_%d", id)))
+		d := func(compositeKey []byte, id uint64) interface{} {
+			return state.ReadString(compositeKey)
 		}
 
-		l := NewList("some_list", s, d)
-		l.Add("hello!")
-
+		l := NewList("artists", s, d)
+		l.Add("David Bowie")
 		require.EqualValues(t, 1, l.Count())
 
 		item := l.Get(1)
+		require.EqualValues(t, "David Bowie", item)
 
-		require.EqualValues(t, "hello!", item)
+		l.Add("Iggy Pop")
+		require.EqualValues(t, 2, l.Count())
+		require.EqualValues(t, "Iggy Pop", l.Get(2))
+
+		var values []string
+		l.Iterate(func(id uint64, item interface{}) bool {
+			values = append(values, item.(string))
+			return true
+		})
+
+		require.EqualValues(t, []string{"David Bowie", "Iggy Pop"}, values)
 	})
 }

@@ -64,7 +64,7 @@ func newRevision(name string) (revisionId uint64) {
 }
 
 func key(revisionId uint64, postfix string) []byte {
-	return []byte(strconv.FormatUint(revisionId, 10) + "_" + postfix)
+	return []byte(int10(revisionId) + "_" + postfix)
 }
 
 func textKey(revisionId uint64) []byte {
@@ -83,13 +83,15 @@ func authorKey(revisionId uint64) []byte {
 	return key(revisionId, "a")
 }
 
-type ListSerializer func(id uint64, params ...interface{})
-type ListDeserializer func(id uint64) interface{}
+type ListSerializer func(compositeKey []byte, id uint64, params ...interface{})
+type ListDeserializer func(compositeKey []byte, id uint64) interface{}
 
 type List interface {
 	Count() uint64
 	Add(...interface{}) uint64
 	Get(id uint64) interface{}
+	// stop iterating if false
+	Iterate(func (id uint64, item interface{}) bool)
 }
 
 type list struct {
@@ -109,10 +111,22 @@ func (l list) Count() uint64 {
 func (l list) Add(params ...interface{}) uint64 {
 	count := l.Count() + 1
 	state.WriteUint64([]byte(l.prefix+"_counter"), count)
-	l.serializer(count, params...)
+	l.serializer([]byte(l.prefix+"_"+int10(count)), count, params...)
 	return count
 }
 
 func (l list) Get(id uint64) interface{} {
-	return l.deserializer(id)
+	return l.deserializer([]byte(l.prefix+"_"+int10(id)), id)
+}
+
+func (l list) Iterate(f func (id uint64, item interface{}) bool) {
+	for i := uint64(1); i <= l.Count(); i++ {
+		if !f(i, l.Get(i)) {
+			break
+		}
+	}
+}
+
+func int10(i uint64) string {
+	return strconv.FormatUint(i, 10)
 }
