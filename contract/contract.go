@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"github.com/orbs-network/orbs-contract-sdk/go/sdk/v1"
 	"github.com/orbs-network/orbs-contract-sdk/go/sdk/v1/address"
 	"github.com/orbs-network/orbs-contract-sdk/go/sdk/v1/state"
@@ -16,6 +17,8 @@ type Revision struct {
 	Timestamp uint64
 
 	Author string
+	AuthorAddress []byte
+
 	Name   string
 	Text   string
 }
@@ -24,63 +27,78 @@ func _init() {
 
 }
 
-const REVISIONS_COUNTER_KEY = "revisions_counter"
+func SaveRevision(name string, text string) (revisionId uint64) {
+	return saveRevision(name, text)
+}
 
-func saveRevision(name string, text string) (messageID uint64) {
-	revisionId := newRevision(name)
-	state.WriteString(textKey(revisionId), text)
+func GetLastRevision(name string) (rawJSON string) {
+	data, _ := json.Marshal(getLastRevision(name))
+	return string(data)
+}
 
-	return
+func saveRevision(name string, text string) (revisionId uint64) {
+	revisions := revisionsList(name)
+	revisions.Add(Revision{
+		Name: name,
+		Text: text,
+		AuthorAddress: address.GetCallerAddress(),
+	})
+
+	return revisions.Count()
 }
 
 func getLastRevision(name string) Revision {
-	revisionId := lastRevisionId(name)
-	return getRevisionById(revisionId)
-}
-
-func getRevisionById(revisionId uint64) Revision {
-	return Revision{
-		ID:     revisionId,
-		Author: hex.EncodeToString(state.ReadBytes(authorKey(revisionId))),
-		Name:   state.ReadString(nameKey(revisionId)),
-		Text:   state.ReadString(textKey(revisionId)),
-	}
+	revisions := revisionsList(name)
+	return revisions.Last().(Revision)
 }
 
 func getRevisions(name string) []Revision {
-	return nil
+	var revisions []Revision
+	revisionsList(name).Iterate(func(id uint64, item interface{}) bool {
+		revision := item.(Revision)
+		revisions = append(revisions, revision)
+		return true
+	})
+
+	return revisions
 }
 
-func newRevision(name string) (revisionId uint64) {
-	revisionId = state.ReadUint64([]byte(REVISIONS_COUNTER_KEY)) + 1
-	state.WriteUint64([]byte(REVISIONS_COUNTER_KEY), revisionId)
+func serializeRevision(compositeKey []byte, id uint64, params ...interface{}) {
+	revision := params[0].(Revision)
 
 	// Save latest revision by that name
-	state.WriteUint64([]byte(name), revisionId)
-	state.WriteString(nameKey(revisionId), name)
-	state.WriteBytes(authorKey(revisionId), address.GetCallerAddress())
-
-	return
+	state.WriteUint64([]byte(revision.Name), id)
+	state.WriteString(nameKey(compositeKey), revision.Name)
+	state.WriteString(textKey(compositeKey), revision.Text)
+	state.WriteBytes(authorKey(compositeKey), address.GetCallerAddress())
 }
 
-func key(revisionId uint64, postfix string) []byte {
-	return []byte(int10(revisionId) + "_" + postfix)
+func deserializeRevision(compositeKey []byte, id uint64) interface{} {
+	author := state.ReadBytes(authorKey(compositeKey))
+
+	return Revision{
+		ID: id,
+		Name: state.ReadString(nameKey(compositeKey)),
+		Text: state.ReadString(textKey(compositeKey)),
+		Author: hex.EncodeToString(author),
+		AuthorAddress: author,
+	}
 }
 
-func textKey(revisionId uint64) []byte {
-	return key(revisionId, "t")
+func revisionsList(name string) List {
+	return NewList(name+"_revisions", serializeRevision, deserializeRevision)
 }
 
-func nameKey(revisionId uint64) []byte {
-	return key(revisionId, "n")
+func textKey(compositeKey []byte) []byte {
+	return []byte(string(compositeKey) + "_t")
 }
 
-func lastRevisionId(name string) (revisionId uint64) {
-	return state.ReadUint64([]byte(name))
+func nameKey(compositeKey []byte) []byte {
+	return []byte(string(compositeKey) + "_n")
 }
 
-func authorKey(revisionId uint64) []byte {
-	return key(revisionId, "a")
+func authorKey(compositeKey []byte) []byte {
+	return []byte(string(compositeKey) + "_a")
 }
 
 type ListSerializer func(compositeKey []byte, id uint64, params ...interface{})
@@ -90,6 +108,7 @@ type List interface {
 	Count() uint64
 	Add(...interface{}) uint64
 	Get(id uint64) interface{}
+	Last() interface{}
 	// stop iterating if false
 	Iterate(func (id uint64, item interface{}) bool)
 }
@@ -117,6 +136,10 @@ func (l list) Add(params ...interface{}) uint64 {
 
 func (l list) Get(id uint64) interface{} {
 	return l.deserializer([]byte(l.prefix+"_"+int10(id)), id)
+}
+
+func (l list) Last() interface{} {
+	return l.Get(l.Count())
 }
 
 func (l list) Iterate(f func (id uint64, item interface{}) bool) {
